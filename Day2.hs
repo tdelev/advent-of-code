@@ -40,6 +40,19 @@ run_operation code opcode cursor
 value :: Code -> Int -> Int
 value code position = code ! (code ! position)
 
+init_code :: Code -> Int -> Int -> Code
+init_code code noun verb = Day2.updateCode (Day2.updateCode code 1 noun) 2 verb
+
+noun_verb :: Code -> Int -> Int
+noun_verb code expected = 
+    let pairs = [(x, y) | x <- [0..99], y <- [0..99]]
+    in find_nv code pairs expected
+
+find_nv :: Code -> [(Int, Int)] -> Int -> Int
+find_nv code pairs expected = 
+    let (noun, verb) = head
+        result = run (init_code code )
+
 main :: IO ()
 main = do
   input <- readFile "day2.txt"
@@ -48,6 +61,6 @@ main = do
     --print $ makeProgram opcodes
   let code = makeProgram opcodes
     --print $ code
-  let final_code = Day2.updateCode (Day2.updateCode code 1 12) 2 2
+  let final_code = init_code code 12 2
   print $ run final_code 0
     --print $ run code 0
