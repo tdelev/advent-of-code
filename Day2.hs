@@ -44,14 +44,16 @@ init_code :: Code -> Int -> Int -> Code
 init_code code noun verb = Day2.updateCode (Day2.updateCode code 1 noun) 2 verb
 
 noun_verb :: Code -> Int -> Int
-noun_verb code expected = 
-    let pairs = [(x, y) | x <- [0..99], y <- [0..99]]
-    in find_nv code pairs expected
+noun_verb code expected =
+  let pairs = [(x, y) | x <- [0 .. 99], y <- [0 .. 99]]
+   in find_nv code pairs expected
 
 find_nv :: Code -> [(Int, Int)] -> Int -> Int
-find_nv code pairs expected = 
-    let (noun, verb) = head
-        result = run (init_code code )
+find_nv code ((noun, verb):xs) expected =
+  let result = run (init_code code noun verb) 0
+   in if result == expected
+        then 100 * noun + verb
+        else find_nv code xs expected
 
 main :: IO ()
 main = do
@@ -61,6 +63,6 @@ main = do
     --print $ makeProgram opcodes
   let code = makeProgram opcodes
     --print $ code
-  let final_code = init_code code 12 2
-  print $ run final_code 0
-    --print $ run code 0
+  --let final_code = init_code code 12 2
+  --print $ run final_code 0
+  print $ noun_verb code 19690720
