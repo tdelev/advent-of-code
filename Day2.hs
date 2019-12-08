@@ -45,7 +45,7 @@ init_code code noun verb = Day2.updateCode (Day2.updateCode code 1 noun) 2 verb
 
 noun_verb :: Code -> Int -> Int
 noun_verb code expected =
-  let pairs = [(x, y) | x <- [0 .. 99], y <- [0 .. 99]]
+  let pairs = (,) <$> [0..99] <*> [0..99] --[(x, y) | x <- [0 .. 99], y <- [0 .. 99]]
    in find_nv code pairs expected
 
 find_nv :: Code -> [(Int, Int)] -> Int -> Int
