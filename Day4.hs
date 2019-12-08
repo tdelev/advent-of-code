@@ -23,5 +23,9 @@ rules a = (sixDigit a) && (sameAdjecentDigits a) && (neverDecrease a)
 differentPasswords :: Int -> Int -> Int
 differentPasswords a b = length $ filter rules [a..b]
 
+digits :: Int -> [Int]
+digits 0 = []
+digits n = (digits $ n `div` 10) ++ [n `mod` 10]
+
 main :: IO ()
-main = print $ differentPasswords 347312 805915
+main = print $ digits 12432 --differentPasswords 347312 805915
