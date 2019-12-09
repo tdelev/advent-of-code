@@ -7,11 +7,10 @@ fuel :: Int -> Int
 fuel mass = mass `div` 3 - 2
 
 massFuel :: Int -> Int
-massFuel mf =
-  let fmf = fuel mf
-   in if fmf <= 0
-        then 0
-        else fmf + massFuel fmf
+massFuel mf
+  | fmf <= 0  = 0
+  | otherwise = fmf + massFuel fmf
+  where fmf = fuel mf
 
 fact n
   | n <= 0 = 1
