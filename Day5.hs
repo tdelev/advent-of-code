@@ -81,6 +81,7 @@ loadComputer :: Code -> Computer
 loadComputer code = Comp (A 0) code []
 
 run :: Int -> Computer -> [Int]
+run input (Comp pointer code output) = [1]
 
 main :: IO ()
 main = do
