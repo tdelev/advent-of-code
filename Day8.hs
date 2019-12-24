@@ -36,7 +36,12 @@ topPixel (x:xs) =
     then x
     else topPixel xs
 
---forPrint :: [Int] -> String
+forPrint :: [Int] -> String
+forPrint [] = ""
+forPrint xs = (printLine $ take 25 xs) ++ forPrint (drop 25 xs)
+
+printLine :: [Int] -> String
+printLine xs = map (\x -> if x == 1 then '*' else ' ') xs ++ "\n"
 
 
 main :: IO ()
@@ -50,5 +55,5 @@ main = do
     --let twos = countTwo minLayer
   let pixels = toPixels layers
   let final = map topPixel pixels
-  print $ map intToDigit final
-    --print $ pixels
+  --print $ map intToDigit final
+  putStrLn $ forPrint final
