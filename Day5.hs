@@ -37,7 +37,7 @@ instance Show Computer where
     (show code) ++
     " ; pointer = " ++ (show pointer) ++ " output = " ++ (show output)
 
-type Decoded = (Instruction, [Access], [Int], [Int])
+type Decoded = (Instruction, [Access])
 
 toInt :: String -> Int
 toInt s = read s
@@ -57,14 +57,12 @@ makeProgram xs = M.fromList $ zip addressList xs
 updateCode :: Code -> Address -> Int -> Code
 updateCode code address value = M.insert address value code
 
-readAddress :: Code -> Address -> Int
-readAddress code address = code ! (A (code ! address))
+readValue :: Code -> Access -> Address -> Int
+readValue code Direct address = code ! address
+readValue code Memory address = code ! (A (code ! address))
 
-readDirect :: Code -> Address -> Int
-readDirect code address = code ! address
-
-readDirectA :: Code -> Address -> Address
-readDirectA code address = A $ readDirect code address
+readAddress :: Code -> Access -> Address -> Address
+readAddress code access address = A $ readValue code access address
 
 asAccess :: Int -> Access
 asAccess = toEnum
@@ -72,21 +70,11 @@ asAccess = toEnum
 getAccess :: Int -> [Access]
 getAccess n = fmap (asAccess . fromEnum . odd) [n, n `div` 10, n `div` 100]
 
-getInputOutput :: Instruction -> ([Int], [Int])
-getInputOutput i =
-  case i of
-    Add    -> ([1, 2], [3])
-    Mul    -> ([1, 2], [3])
-    Input  -> ([], [1])
-    Output -> ([1], [])
-    Halt   -> ([], [])
-
 decodeInstruction :: Int -> Decoded
 decodeInstruction n =
   let instruction = decode $ n `mod` 100
       access = getAccess $ n `div` 100
-      (input, output) = getInputOutput instruction
-   in (instruction, access, input, output)
+   in (instruction, access)
 
 loadComputer :: Code -> Computer
 loadComputer code = Comp (A 0) code []
@@ -95,22 +83,43 @@ getInstruction :: Computer -> Decoded
 getInstruction (Comp pointer code _) = decodeInstruction $ code ! pointer
 
 movePointer :: Address -> Int -> Address
-movePointer a i = A ((asValue a) + i)
+movePointer address delta = A ((asValue address) + delta)
 
 --executeInstruction :: Int -> Computer -> Computer
 --executeInstruction input comp = let decoded = getInstruction comp
 --                                let
 exec :: Int -> Decoded -> Computer -> Computer
-exec input (Input, access:_, _, _) (Comp pointer code output) =
+exec input (Input, access:_) (Comp pointer code output) =
   Comp
     (movePointer pointer 2)
-    (updateCode code (readDirectA code $ movePointer pointer 1) input)
+    (updateCode code (readAddress code access $ movePointer pointer 1) input)
     []
-exec input (Output, access:_, _, _) (Comp pointer code output) =
-  Comp (movePointer pointer 2) code [readAddress code $ movePointer pointer 1]
+exec input (Output, access:_) (Comp pointer code output) =
+  Comp
+    (movePointer pointer 2)
+    code
+    [readValue code Direct $ movePointer pointer 1]
+exec input (Mul, first:second:third:_) (Comp pointer code output) =
+  Comp
+    (movePointer pointer 4)
+    (updateCode
+       code
+       (readAddress code Direct $ movePointer pointer 3)
+       ((readValue code first $ movePointer pointer 1) *
+        (readValue code second $ movePointer pointer 2)))
+    []
+exec input (Add, first:second:third:_) (Comp pointer code output) =
+  Comp
+    (movePointer pointer 4)
+    (updateCode
+       code
+       (readAddress code Direct $ movePointer pointer 3)
+       ((readValue code first $ movePointer pointer 1) +
+        (readValue code second $ movePointer pointer 2)))
+    []
 
 isHalt :: Decoded -> Bool
-isHalt (ins, _, _, _) =
+isHalt (ins, _) =
   if ins == Halt
     then True
     else False
@@ -125,14 +134,15 @@ run input comp =
 main :: IO ()
 main = do
   input <- readFile "day5.txt"
-  --let opcodes = fmap toInt $ splitOn "," input
+  let opcodes = fmap toInt $ splitOn "," input
     --let opcodes = [1,1,1,4,99,5,6,0,99]
-  let opcodes = [3, 0, 4, 0, 99]
+  --let opcodes = [1101, 100, -1, 4, 0]
     --print $ makeProgram opcodes
   let code = makeProgram opcodes
   let comp = loadComputer code
-  --let ins = getInstruction comp
-  print $ run 12 comp
+  let ins = getInstruction comp
+  --print ins
+  print $ run 1 comp --ins --run 0 comp
     --let final_code = init_code code 12 2
     --print $ run final_code 0
     --print $ noun_verb code 19690720
