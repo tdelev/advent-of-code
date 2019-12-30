@@ -41,6 +41,13 @@ toSlopes slopes =
     Map.empty
     slopes
 
+slopesIndex :: [(Int, Float, Int, Pos)] -> Map.Map (Int, Float) [Pos]
+slopesIndex slopes =
+  foldl
+    (\acc (quad, slope, val, pos) -> Map.insertWith (++) (quad, slope) (if val > 0 then [pos] else []) acc)
+    Map.empty
+    slopes
+
 countDifferent :: Slopes -> Int
 countDifferent slopes =
   sum $
@@ -54,15 +61,24 @@ countDifferent slopes =
 withAsteroids :: Space -> [Pos]
 withAsteroids space = filter (\c -> isAsteroid space c == 1) (coords space)
 
-ordered :: [(Int, Float, Int, Pos)] -> [(Float, Pos)]
-ordered xs = fmap (\(quad, slope, _, pos) -> (slope + fromIntegral (quad * 100), pos)) $ filter (\(_, _, c, _) -> c > 0) xs
+--ordered :: [(Int, Float, Int, Pos)] -> Pos -> [(Float, Pos)]
+--ordered xs start = fmap (\(quad, slope, _, pos) -> (distance (slope, quad, pos) start)) $ filter (\(_, _, c, _) -> c > 0) xs
 
---distance :: (Float, Int, Pos) -> Pos -> (Float, Pos)
---distance (slope, quad, pos) x = 
+dd :: Pos -> Pos -> Float
+dd (x1, y1) (x2, y2) = fromIntegral ((abs x1 - x2)^2 + (abs y1 - y2)^2)
+
+distance :: (Int, Float, Int) -> Float
+distance (quad, slope, depth) = (fromIntegral (depth * 10000)) + (fromIntegral (quad * 1000)) + normSlope slope
+
+normSlope :: Float -> Float
+normSlope a = if a == -1/0 || a == 1/0 then 0 else a
+
+weighted :: [a] -> (Int, Float) -> [(Float, a)]
+weighted xs (quad, slope) = zipWith (\x i -> ((distance (quad, slope, i)), x)) xs [0..]
 
 main :: IO ()
 main = do
-  input <- readFile "day10test.txt"
+  input <- readFile "day10.txt"
   let rows = lines input
   let space = M.fromLists rows
   let candidateLocations = withAsteroids space
@@ -71,4 +87,7 @@ main = do
   let tower = maximumBy (comparing snd) locationSlopes
   -- print tower -- Part 1
   let asteroids = allSlopes space $ fst tower
-  print $ ordered asteroids
+  let ordered = sortBy (comparing fst) $ filter (\(a, b) -> length b > 0) $ Map.toList $ slopesIndex asteroids
+  --print ordered
+  let wo = sortBy (comparing fst) $ concat $ fmap (\(a, b) -> weighted (sortBy (comparing (dd (fst tower))) b) a) ordered
+  print $ wo!!199
