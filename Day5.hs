@@ -2,6 +2,7 @@ module Day5 where
 
 import           Data.List.Split
 import           Data.Map        as M
+import           Debug.Trace
 
 newtype Address =
   A
@@ -16,6 +17,10 @@ data Instruction
   | Mul
   | Input
   | Output
+  | JumpTrue
+  | JumpFalse
+  | LessThen
+  | Equals
   | Halt
   deriving (Eq, Show)
 
@@ -47,7 +52,13 @@ decode 1  = Add
 decode 2  = Mul
 decode 3  = Input
 decode 4  = Output
+decode 5  = JumpTrue
+decode 6  = JumpFalse
+decode 7  = LessThen
+decode 8  = Equals
 decode 99 = Halt
+
+decode' x = trace ("decode " ++ show x) (decode x)
 
 makeProgram :: [Int] -> Code
 makeProgram xs = M.fromList $ zip addressList xs
@@ -57,9 +68,25 @@ makeProgram xs = M.fromList $ zip addressList xs
 updateCode :: Code -> Address -> Int -> Code
 updateCode code address value = M.insert address value code
 
+updateCode' code address val =
+  trace
+    ("update code: a = " ++ (show address) ++ " val = " ++ (show val))
+    updateCode
+    code
+    address
+    val
+
 readValue :: Code -> Access -> Address -> Int
 readValue code Direct address = code ! address
 readValue code Memory address = code ! (A (code ! address))
+
+readValue' code a address =
+  trace
+    ("read value: access = " ++ (show a) ++ " a = " ++ (show address))
+    readValue
+    code
+    a
+    address
 
 readAddress :: Code -> Access -> Address -> Address
 readAddress code access address = A $ readValue code access address
@@ -76,48 +103,90 @@ decodeInstruction n =
       access = getAccess $ n `div` 100
    in (instruction, access)
 
+decodeInstruction' n =
+  trace ("Decode instruction: " ++ (show n)) $ decodeInstruction n
+
 loadComputer :: Code -> Computer
 loadComputer code = Comp (A 0) code []
 
 getInstruction :: Computer -> Decoded
 getInstruction (Comp pointer code _) = decodeInstruction $ code ! pointer
 
+--getInstruction comp = trace ("getInstruction: " ++ (show $ code comp)) $ getInstruction' comp
 movePointer :: Address -> Int -> Address
 movePointer address delta = A ((asValue address) + delta)
 
---executeInstruction :: Int -> Computer -> Computer
---executeInstruction input comp = let decoded = getInstruction comp
---                                let
-exec :: Int -> Decoded -> Computer -> Computer
-exec input (Input, access:_) (Comp pointer code output) =
-  Comp
-    (movePointer pointer 2)
-    (updateCode code (readAddress code access $ movePointer pointer 1) input)
-    []
-exec input (Output, access:_) (Comp pointer code output) =
-  Comp
-    (movePointer pointer 2)
-    code
-    [readValue code Direct $ movePointer pointer 1]
-exec input (Mul, first:second:third:_) (Comp pointer code output) =
-  Comp
-    (movePointer pointer 4)
-    (updateCode
-       code
-       (readAddress code Direct $ movePointer pointer 3)
-       ((readValue code first $ movePointer pointer 1) *
-        (readValue code second $ movePointer pointer 2)))
-    []
-exec input (Add, first:second:third:_) (Comp pointer code output) =
-  Comp
-    (movePointer pointer 4)
-    (updateCode
-       code
-       (readAddress code Direct $ movePointer pointer 3)
-       ((readValue code first $ movePointer pointer 1) +
-        (readValue code second $ movePointer pointer 2)))
-    []
+incrementPointer :: Decoded -> Address -> Code -> Address
+incrementPointer (JumpTrue, first:second:third:_) address code =
+  if (readValue code first $ movePointer address 1) /= 0
+    then A $ readValue code second $ movePointer address 2
+    else movePointer address 3
+incrementPointer (JumpFalse, first:second:third:_) address code =
+  if (readValue code first $ movePointer address 1) == 0
+    then A $ readValue code second $ movePointer address 2
+    else movePointer address 3
+incrementPointer (instruction, first:second:third:_) address code =
+  let delta =
+        case instruction of
+          Output   -> 2
+          Input    -> 2
+          Add      -> 4
+          Mul      -> 4
+          LessThen -> 4
+          Equals   -> 4
+   in movePointer address delta
 
+exec :: Int -> Decoded -> Computer -> Computer
+exec input instruction (Comp pointer code output) =
+  let incremented = incrementPointer instruction pointer code
+      result = calculateResult input instruction code pointer
+      resultOutput = getOutput instruction code pointer
+   in Comp incremented result resultOutput
+  where
+    calculateResult input instruction code pointer =
+      case instruction of
+        (Input, _) ->
+          updateCode
+            code
+            (readAddress code Direct $ movePointer pointer 1)
+            input
+        (Output, _) -> code
+        (Add, first:second:third:_) ->
+          updateCode
+            code
+            (readAddress code Direct $ movePointer pointer 3)
+            ((readValue code first $ movePointer pointer 1) +
+             (readValue code second $ movePointer pointer 2))
+        (Mul, first:second:third:_) ->
+          updateCode
+            code
+            (readAddress code Direct $ movePointer pointer 3)
+            ((readValue code first $ movePointer pointer 1) *
+             (readValue code second $ movePointer pointer 2))
+        (JumpTrue, _) -> code
+        (JumpFalse, _) -> code
+        (LessThen, first:second:third:_) ->
+          updateCode
+            code
+            (readAddress code Direct $ movePointer pointer 3)
+            (if (readValue code first $ movePointer pointer 1) <
+                (readValue code second $ movePointer pointer 2)
+               then 1
+               else 0)
+        (Equals, first:second:third:_) ->
+          updateCode
+            code
+            (readAddress code Direct $ movePointer pointer 3)
+            (if (readValue code first $ movePointer pointer 1) ==
+                (readValue code second $ movePointer pointer 2)
+               then 1
+               else 0)
+    getOutput instruction code pointer =
+      case instruction of
+        (Output, _) -> [readValue code Memory $ movePointer pointer 1]
+        _           -> []
+
+--exec input ins comp = trace ("exec: input : " ++ (show input) ++ "ins: " ++ (show ins)) exec' input ins comp
 isHalt :: Decoded -> Bool
 isHalt (ins, _) =
   if ins == Halt
@@ -142,7 +211,7 @@ main = do
   let comp = loadComputer code
   let ins = getInstruction comp
   --print ins
-  print $ run 1 comp --ins --run 0 comp
+  print $ run 5 comp --ins --run 0 comp
     --let final_code = init_code code 12 2
     --print $ run final_code 0
     --print $ noun_verb code 19690720
