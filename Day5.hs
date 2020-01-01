@@ -144,43 +144,39 @@ exec input instruction (Comp pointer code output) =
    in Comp incremented result resultOutput
   where
     calculateResult input instruction code pointer =
-      case instruction of
-        (Input, _) ->
-          updateCode
-            code
-            (readAddress code Direct $ movePointer pointer 1)
-            input
-        (Output, _) -> code
-        (Add, first:second:third:_) ->
-          updateCode
-            code
-            (readAddress code Direct $ movePointer pointer 3)
-            ((readValue code first $ movePointer pointer 1) +
-             (readValue code second $ movePointer pointer 2))
-        (Mul, first:second:third:_) ->
-          updateCode
-            code
-            (readAddress code Direct $ movePointer pointer 3)
-            ((readValue code first $ movePointer pointer 1) *
-             (readValue code second $ movePointer pointer 2))
-        (JumpTrue, _) -> code
-        (JumpFalse, _) -> code
-        (LessThen, first:second:third:_) ->
-          updateCode
-            code
-            (readAddress code Direct $ movePointer pointer 3)
-            (if (readValue code first $ movePointer pointer 1) <
-                (readValue code second $ movePointer pointer 2)
-               then 1
-               else 0)
-        (Equals, first:second:third:_) ->
-          updateCode
-            code
-            (readAddress code Direct $ movePointer pointer 3)
-            (if (readValue code first $ movePointer pointer 1) ==
-                (readValue code second $ movePointer pointer 2)
-               then 1
-               else 0)
+      let mvPtr = movePointer pointer
+          readA = readAddress code Direct
+          readV = readValue code
+       in case instruction of
+            (Input, _) ->
+              updateCode code (readAddress code Direct $ mvPtr 1) input
+            (Output, _) -> code
+            (Add, first:second:third:_) ->
+              updateCode
+                code
+                (readA $ mvPtr 3)
+                ((readV first $ mvPtr 1) + (readV second $ mvPtr 2))
+            (Mul, first:second:third:_) ->
+              updateCode
+                code
+                (readA $ mvPtr 3)
+                ((readV first $ mvPtr 1) * (readV second $ mvPtr 2))
+            (JumpTrue, _) -> code
+            (JumpFalse, _) -> code
+            (LessThen, first:second:third:_) ->
+              updateCode
+                code
+                (readA $ mvPtr 3)
+                (if (readV first $ mvPtr 1) < (readV second $ mvPtr 2)
+                   then 1
+                   else 0)
+            (Equals, first:second:third:_) ->
+              updateCode
+                code
+                (readA $ mvPtr 3)
+                (if (readV first $ mvPtr 1) == (readV second $ mvPtr 2)
+                   then 1
+                   else 0)
     getOutput instruction code pointer =
       case instruction of
         (Output, _) -> [readValue code Memory $ movePointer pointer 1]
