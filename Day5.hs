@@ -136,12 +136,12 @@ incrementPointer (instruction, first:second:third:_) address code =
           Equals   -> 4
    in movePointer address delta
 
-exec :: Int -> Decoded -> Computer -> Computer
+exec :: [Int] -> Decoded -> Computer -> (Computer, [Int])
 exec input instruction (Comp pointer code output) =
   let incremented = incrementPointer instruction pointer code
       result = calculateResult input instruction code pointer
       resultOutput = getOutput instruction code pointer
-   in Comp incremented result resultOutput
+   in (Comp incremented result resultOutput, getInput instruction input)
   where
     calculateResult input instruction code pointer =
       let mvPtr = movePointer pointer
@@ -149,7 +149,7 @@ exec input instruction (Comp pointer code output) =
           readV = readValue code
        in case instruction of
             (Input, _) ->
-              updateCode code (readAddress code Direct $ mvPtr 1) input
+              updateCode code (readAddress code Direct $ mvPtr 1) (head input)
             (Output, _) -> code
             (Add, first:second:third:_) ->
               updateCode
@@ -181,6 +181,10 @@ exec input instruction (Comp pointer code output) =
       case instruction of
         (Output, _) -> [readValue code Memory $ movePointer pointer 1]
         _           -> []
+    getInput instruction input =
+      case instruction of
+        (Input, _) -> tail input
+        _          -> input
 
 --exec input ins comp = trace ("exec: input : " ++ (show input) ++ "ins: " ++ (show ins)) exec' input ins comp
 isHalt :: Decoded -> Bool
@@ -189,17 +193,21 @@ isHalt (ins, _) =
     then True
     else False
 
-run :: Int -> Computer -> Computer
+getOpcodes :: String -> [Int]
+getOpcodes input = fmap toInt $ splitOn "," input
+
+run :: [Int] -> Computer -> Computer
 run input comp =
   let ins = getInstruction comp
    in if isHalt ins
         then comp
-        else run input (exec input ins comp)
+        else let (resComp, resInput) = (exec input ins comp)
+              in run resInput resComp
 
 main :: IO ()
 main = do
   input <- readFile "day5.txt"
-  let opcodes = fmap toInt $ splitOn "," input
+  let opcodes = getOpcodes input
     --let opcodes = [1,1,1,4,99,5,6,0,99]
   --let opcodes = [1101, 100, -1, 4, 0]
     --print $ makeProgram opcodes
@@ -207,7 +215,7 @@ main = do
   let comp = loadComputer code
   let ins = getInstruction comp
   --print ins
-  print $ run 5 comp --ins --run 0 comp
+  print $ run [5] comp --ins --run 0 comp
     --let final_code = init_code code 12 2
     --print $ run final_code 0
     --print $ noun_verb code 19690720
