@@ -83,11 +83,33 @@ steps n planets = steps (n - 1) $ step planets
 total :: [Planet] -> Int
 total xs = sum $ fmap totalEnergy xs
 
+getPos :: [Planet] -> (Position -> Int) -> [Int]
+getPos planets f = fmap (f . position) planets
+
+findCicle :: [Planet] -> Int -> [Int] -> (Position -> Int) -> Int
+findCicle planets n start f =
+  let next = (step planets)
+      pos = getPos next f
+   in if pos == start
+        then n + 1
+        else findCicle next (n + 1) start f
+
+lcmm :: Int -> Int -> Int -> Int
+lcmm a b c = lcm (lcm a b) c
+
 main :: IO ()
 main = do
   input <- readFile "day12.txt"
   let rows = fmap strip $ lines input
   let planets = fmap toPlanet rows
-  let first = head planets
   --let second = head $ tail planets
-  print $ total $ steps 1000 planets
+  let startX = getPos planets x
+  let startY = getPos planets y
+  let startZ = getPos planets z
+  let cx = findCicle planets 1 startX x
+  let cy = findCicle planets 1 startY y
+  let cz = findCicle planets 1 startZ z
+  print $ startX
+  print $ startY
+  print $ startZ
+  print $ lcmm cx cy cz
