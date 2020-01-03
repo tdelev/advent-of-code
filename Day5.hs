@@ -136,12 +136,14 @@ incrementPointer (instruction, first:second:third:_) address code =
           Equals   -> 4
    in movePointer address delta
 
-exec :: [Int] -> Decoded -> Computer -> (Computer, [Int])
+exec :: [Int] -> Decoded -> Computer -> (Computer, [Int], Bool, Bool)
 exec input instruction (Comp pointer code output) =
   let incremented = incrementPointer instruction pointer code
       result = calculateResult input instruction code pointer
       resultOutput = getOutput instruction code pointer
-   in (Comp incremented result resultOutput, getInput instruction input)
+   in ( Comp incremented result resultOutput
+      , getInput instruction input
+      , isHalt instruction, False)
   where
     calculateResult input instruction code pointer =
       let mvPtr = movePointer pointer
@@ -196,12 +198,20 @@ isHalt (ins, _) =
 getOpcodes :: String -> [Int]
 getOpcodes input = fmap toInt $ splitOn "," input
 
+execInstruction :: [Int] -> Computer -> (Computer, [Int], Bool, Bool)
+execInstruction input comp =
+  let ins = getInstruction comp
+      waitOnInput = (fst ins == Input) && Prelude.null input
+   in if waitOnInput
+        then (comp, input, False, True)
+        else exec input ins comp
+
 run :: [Int] -> Computer -> Computer
 run input comp =
   let ins = getInstruction comp
    in if isHalt ins
         then comp
-        else let (resComp, resInput) = (exec input ins comp)
+        else let (resComp, resInput, _, _) = (exec input ins comp)
               in run resInput resComp
 
 main :: IO ()
