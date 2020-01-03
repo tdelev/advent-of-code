@@ -98,7 +98,8 @@ readValue' code base a address =
     address
 
 readAddress :: Code -> Int -> Access -> Address -> Address
-readAddress code base access address = A $ readValue code base access address
+readAddress code base Relative address = A ((code ! address) + base)
+readAddress code base access address = A $ readValue code base Direct address
 
 asAccess :: Int -> Access
 asAccess = toEnum
@@ -163,21 +164,21 @@ exec input instruction (Comp pointer code output relativeBase) =
           readA = readAddress code relativeBase --Direct
           readV = readValue code relativeBase
        in case instruction of
-            (Input, _) ->
+            (Input, first:_) ->
               updateCode
                 code
-                (readAddress code relativeBase Direct $ mvPtr 1)
+                (readAddress code relativeBase first $ mvPtr 1)
                 (head input)
             (Output, _) -> code
             (Add, first:second:third:_) ->
               updateCode
                 code
-                (readA Direct $ mvPtr 3)
+                (readA third $ mvPtr 3)
                 ((readV first $ mvPtr 1) + (readV second $ mvPtr 2))
             (Mul, first:second:third:_) ->
               updateCode
                 code
-                (readA Direct $ mvPtr 3)
+                (readA third $ mvPtr 3)
                 ((readV first $ mvPtr 1) * (readV second $ mvPtr 2))
             (JumpTrue, _) -> code
             (JumpFalse, _) -> code
