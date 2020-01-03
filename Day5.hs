@@ -21,26 +21,31 @@ data Instruction
   | JumpFalse
   | LessThen
   | Equals
+  | AdjustBase
   | Halt
   deriving (Eq, Show)
 
 data Access
   = Memory
   | Direct
+  | Relative
   deriving (Enum, Show)
 
 data Computer =
   Comp
-    { pointer :: Address
-    , code    :: Code
-    , output  :: [Int]
+    { pointer      :: Address
+    , code         :: Code
+    , output       :: [Int]
+    , relativeBase :: Int
     }
 
 instance Show Computer where
-  show (Comp pointer code output) =
+  show (Comp pointer code output relativeBase) =
     "Computer : code = " ++
     (show code) ++
-    " ; pointer = " ++ (show pointer) ++ " output = " ++ (show output)
+    " ; pointer = " ++
+    (show pointer) ++
+    " output = " ++ (show output) ++ " relativeBase = " ++ (show relativeBase)
 
 type Decoded = (Instruction, [Access])
 
@@ -56,6 +61,7 @@ decode 5  = JumpTrue
 decode 6  = JumpFalse
 decode 7  = LessThen
 decode 8  = Equals
+decode 9  = AdjustBase
 decode 99 = Halt
 
 decode' x = trace ("decode " ++ show x) (decode x)
@@ -70,32 +76,36 @@ updateCode code address value = M.insert address value code
 
 updateCode' code address val =
   trace
-    ("update code: a = " ++ (show address) ++ " val = " ++ (show val))
+    ("\n\nupdate code: a = " ++ (show address) ++ " val = " ++ (show val) ++ "\n\n")
     updateCode
     code
     address
     val
 
-readValue :: Code -> Access -> Address -> Int
-readValue code Direct address = code ! address
-readValue code Memory address = code ! (A (code ! address))
+readValue :: Code -> Int -> Access -> Address -> Int
+readValue code _ Direct address = findWithDefault 0 address code
+readValue code _ Memory address = findWithDefault 0 (A (code ! address)) code
+readValue code base Relative address = findWithDefault 0 (A ((code ! address) + base)) code
 
-readValue' code a address =
+readValue' code base a address =
   trace
-    ("read value: access = " ++ (show a) ++ " a = " ++ (show address))
+    ("\nread value: access = " ++
+     (show a) ++ " address = " ++ (show address) ++ " ; base = " ++ (show base) ++ "\n")
     readValue
     code
+    base
     a
     address
 
-readAddress :: Code -> Access -> Address -> Address
-readAddress code access address = A $ readValue code access address
+readAddress :: Code -> Int -> Access -> Address -> Address
+readAddress code base access address = A $ readValue code base access address
 
 asAccess :: Int -> Access
 asAccess = toEnum
 
 getAccess :: Int -> [Access]
-getAccess n = fmap (asAccess . fromEnum . odd) [n, n `div` 10, n `div` 100]
+getAccess n = fmap (asAccess . (`mod` 10)) [n, n `div` 10, n `div` 100]
+
 
 decodeInstruction :: Int -> Decoded
 decodeInstruction n =
@@ -107,86 +117,99 @@ decodeInstruction' n =
   trace ("Decode instruction: " ++ (show n)) $ decodeInstruction n
 
 loadComputer :: Code -> Computer
-loadComputer code = Comp (A 0) code []
+loadComputer code = Comp (A 0) code [] 0
 
 getInstruction :: Computer -> Decoded
-getInstruction (Comp pointer code _) = decodeInstruction $ code ! pointer
+getInstruction (Comp pointer code _ _) = decodeInstruction $ code ! pointer
 
 --getInstruction comp = trace ("getInstruction: " ++ (show $ code comp)) $ getInstruction' comp
 movePointer :: Address -> Int -> Address
 movePointer address delta = A ((asValue address) + delta)
 
-incrementPointer :: Decoded -> Address -> Code -> Address
-incrementPointer (JumpTrue, first:second:third:_) address code =
-  if (readValue code first $ movePointer address 1) /= 0
-    then A $ readValue code second $ movePointer address 2
+incrementPointer :: Decoded -> Address -> Code -> Int -> Address
+incrementPointer (JumpTrue, first:second:third:_) address code relativeBase =
+  if (readValue code relativeBase first $ movePointer address 1) /= 0
+    then A $ readValue code relativeBase second $ movePointer address 2
     else movePointer address 3
-incrementPointer (JumpFalse, first:second:third:_) address code =
-  if (readValue code first $ movePointer address 1) == 0
-    then A $ readValue code second $ movePointer address 2
+incrementPointer (JumpFalse, first:second:third:_) address code relativeBase =
+  if (readValue code relativeBase first $ movePointer address 1) == 0
+    then A $ readValue code relativeBase second $ movePointer address 2
     else movePointer address 3
-incrementPointer (instruction, first:second:third:_) address code =
+incrementPointer (instruction, first:second:third:_) address code _ =
   let delta =
         case instruction of
-          Output   -> 2
-          Input    -> 2
-          Add      -> 4
-          Mul      -> 4
-          LessThen -> 4
-          Equals   -> 4
+          Output     -> 2
+          Input      -> 2
+          Add        -> 4
+          Mul        -> 4
+          LessThen   -> 4
+          Equals     -> 4
+          AdjustBase -> 2
    in movePointer address delta
 
 exec :: [Int] -> Decoded -> Computer -> (Computer, [Int], Bool, Bool)
-exec input instruction (Comp pointer code output) =
-  let incremented = incrementPointer instruction pointer code
+exec input instruction (Comp pointer code output relativeBase) =
+  let incremented = incrementPointer instruction pointer code relativeBase
       result = calculateResult input instruction code pointer
       resultOutput = getOutput instruction code pointer
-   in ( Comp incremented result resultOutput
+      base = getBase instruction relativeBase
+   in ( Comp incremented result resultOutput base
       , getInput instruction input
-      , isHalt instruction, False)
+      , isHalt instruction
+      , False)
   where
     calculateResult input instruction code pointer =
       let mvPtr = movePointer pointer
-          readA = readAddress code Direct
-          readV = readValue code
+          readA = readAddress code relativeBase --Direct
+          readV = readValue code relativeBase
        in case instruction of
             (Input, _) ->
-              updateCode code (readAddress code Direct $ mvPtr 1) (head input)
+              updateCode
+                code
+                (readAddress code relativeBase Direct $ mvPtr 1)
+                (head input)
             (Output, _) -> code
             (Add, first:second:third:_) ->
               updateCode
                 code
-                (readA $ mvPtr 3)
+                (readA Direct $ mvPtr 3)
                 ((readV first $ mvPtr 1) + (readV second $ mvPtr 2))
             (Mul, first:second:third:_) ->
               updateCode
                 code
-                (readA $ mvPtr 3)
+                (readA Direct $ mvPtr 3)
                 ((readV first $ mvPtr 1) * (readV second $ mvPtr 2))
             (JumpTrue, _) -> code
             (JumpFalse, _) -> code
+            (AdjustBase, _) -> code
             (LessThen, first:second:third:_) ->
               updateCode
                 code
-                (readA $ mvPtr 3)
+                (readA third $ mvPtr 3)
                 (if (readV first $ mvPtr 1) < (readV second $ mvPtr 2)
                    then 1
                    else 0)
             (Equals, first:second:third:_) ->
               updateCode
                 code
-                (readA $ mvPtr 3)
+                (readA third $ mvPtr 3)
                 (if (readV first $ mvPtr 1) == (readV second $ mvPtr 2)
                    then 1
                    else 0)
     getOutput instruction code pointer =
       case instruction of
-        (Output, _) -> [readValue code Memory $ movePointer pointer 1]
-        _           -> []
+        (Output, first:_) ->
+          output ++ [readValue code relativeBase first $ movePointer pointer 1]
+        _ -> output
     getInput instruction input =
       case instruction of
         (Input, _) -> tail input
         _          -> input
+    getBase instruction base =
+      case instruction of
+        (AdjustBase, first:_) ->
+          base + (readValue code relativeBase first $ movePointer pointer 1)
+        _ -> base
 
 --exec input ins comp = trace ("exec: input : " ++ (show input) ++ "ins: " ++ (show ins)) exec' input ins comp
 isHalt :: Decoded -> Bool
