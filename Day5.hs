@@ -76,7 +76,8 @@ updateCode code address value = M.insert address value code
 
 updateCode' code address val =
   trace
-    ("\n\nupdate code: a = " ++ (show address) ++ " val = " ++ (show val) ++ "\n\n")
+    ("\n\nupdate code: a = " ++
+     (show address) ++ " val = " ++ (show val) ++ "\n\n")
     updateCode
     code
     address
@@ -85,12 +86,14 @@ updateCode' code address val =
 readValue :: Code -> Int -> Access -> Address -> Int
 readValue code _ Direct address = findWithDefault 0 address code
 readValue code _ Memory address = findWithDefault 0 (A (code ! address)) code
-readValue code base Relative address = findWithDefault 0 (A ((code ! address) + base)) code
+readValue code base Relative address =
+  findWithDefault 0 (A ((code ! address) + base)) code
 
 readValue' code base a address =
   trace
     ("\nread value: access = " ++
-     (show a) ++ " address = " ++ (show address) ++ " ; base = " ++ (show base) ++ "\n")
+     (show a) ++
+     " address = " ++ (show address) ++ " ; base = " ++ (show base) ++ "\n")
     readValue
     code
     base
@@ -106,7 +109,6 @@ asAccess = toEnum
 
 getAccess :: Int -> [Access]
 getAccess n = fmap (asAccess . (`mod` 10)) [n, n `div` 10, n `div` 100]
-
 
 decodeInstruction :: Int -> Decoded
 decodeInstruction n =
@@ -229,6 +231,13 @@ execInstruction input comp =
    in if waitOnInput
         then (comp, input, False, True)
         else exec input ins comp
+
+execInstruction' input comp =
+  trace
+    ("exec instruction : \n" ++ (show input) ++ "\ncomp = " ++ (show comp))
+    execInstruction
+    input
+    comp
 
 run :: [Int] -> Computer -> Computer
 run input comp =
