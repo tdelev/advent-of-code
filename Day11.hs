@@ -91,7 +91,7 @@ paint (grid, robot, computerInput, outputOffset) =
         execInstruction computerInput $ comp robot
       (nextGrid, nextRobot, inputToProcess, nextOffset) =
         processOutput outputOffset (grid, robot, nextInput)
-   in if isHalt -- || outputOffset > 40000
+   in if isHalt
         then nextGrid
         else paint
                ( nextGrid

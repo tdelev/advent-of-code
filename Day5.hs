@@ -148,6 +148,7 @@ incrementPointer (instruction, first:second:third:_) address code _ =
           LessThen   -> 4
           Equals     -> 4
           AdjustBase -> 2
+          Halt       -> 0
    in movePointer address delta
 
 exec :: [Int] -> Decoded -> Computer -> (Computer, [Int], Bool, Bool)
@@ -163,7 +164,7 @@ exec input instruction (Comp pointer code output relativeBase) =
   where
     calculateResult input instruction code pointer =
       let mvPtr = movePointer pointer
-          readA = readAddress code relativeBase --Direct
+          readA = readAddress code relativeBase
           readV = readValue code relativeBase
        in case instruction of
             (Input, first:_) ->
@@ -199,6 +200,7 @@ exec input instruction (Comp pointer code output relativeBase) =
                 (if (readV first $ mvPtr 1) == (readV second $ mvPtr 2)
                    then 1
                    else 0)
+            (Halt, _) -> code
     getOutput instruction code pointer =
       case instruction of
         (Output, first:_) ->
@@ -214,7 +216,14 @@ exec input instruction (Comp pointer code output relativeBase) =
           base + (readValue code relativeBase first $ movePointer pointer 1)
         _ -> base
 
---exec input ins comp = trace ("exec: input : " ++ (show input) ++ "ins: " ++ (show ins)) exec' input ins comp
+exec' input ins comp =
+  trace
+    ("exec: input : " ++ (show input) ++ "ins: " ++ (show ins))
+    exec
+    input
+    ins
+    comp
+
 isHalt :: Decoded -> Bool
 isHalt (ins, _) =
   if ins == Halt
