@@ -15,7 +15,7 @@ type Chemical = (Int, String)
 
 type ReactionMap = M.Map String (Int, [Chemical])
 
-type FuelMap = M.Map String Int
+type FuelMap = M.Map String Float
 
 toReactionMap :: ([String], String) -> ReactionMap -> ReactionMap
 toReactionMap (xs, key) m =
@@ -31,28 +31,28 @@ asChemical s =
    in (toInt a, b)
 
 updateFuel :: FuelMap -> Int -> Chemical -> FuelMap
-updateFuel acc times (count, chemical) =
-  M.insertWith (+) chemical (count * times) acc
+updateFuel acc total (count, chemical) =
+  M.insertWith (+) chemical (count / total) acc
 
 isORE :: [String] -> Bool
 isORE xs = length xs == 1 && (head xs == "ORE")
 
 getMul :: Int -> Int -> Int
-getMul a b =
-  if a < b
+getMul need available =
+  if need < available
     then 1
-    else let res = a `div` b
-             m = a `mod` b
+    else let res = need `div` available
+             m = need `mod` available
           in if m > 0
                then res + 1
                else res
 
 buildFuelMap :: ReactionMap -> (Int, String) -> FuelMap -> FuelMap
-buildFuelMap rmap (total, key) acc =
+buildFuelMap rmap (need, key) acc =
   if M.null rmap
     then acc
-    else let (times, values) = rmap ! key
-             multiplier = getMul total times
+    else let (available, values) = rmap ! key
+             multiplier = getMul need available
              resultAcc = foldl (\fm v -> updateFuel fm multiplier v) acc values
              resultMap = M.delete key rmap
              accList = (fmap (\x -> buildFuelMap resultMap x M.empty) values)
@@ -60,6 +60,21 @@ buildFuelMap rmap (total, key) acc =
           in if isORE (fmap snd values)
                then acc
                else finalAcc
+
+findFuel' :: ReactionMap -> (Int, String) -> Int
+findFuel' rmap (need, key) =
+  if M.null rmap
+    then 0
+    else let (available, values) = rmap ! key
+             multiplier = getMul need available
+             resultMap = M.delete key rmap
+             total = sum $ fmap (\x -> findFuel resultMap x) values
+          in if isORE (fmap snd values)
+               then multiplier * (fst $ head values)
+               else total
+
+findFuel rmap nk = trace ("find fuel : map = " ++ (show rmap) ++ " ; key = " ++ (show nk)) findFuel' rmap nk
+
 
 findORE :: (String, Int) -> ReactionMap -> Int
 findORE (key, total) rmap =
@@ -76,4 +91,6 @@ main = do
   let pairs = fmap (toPair . splitOn " => ") rows
   let reactions = asMap pairs
   let fuels = buildFuelMap reactions (1, "FUEL") M.empty
+  --print $ findFuel reactions (1, "FUEL")
+  print $ fuels
   print $ sum $ fmap (\x -> findORE x reactions) (M.toList fuels)
