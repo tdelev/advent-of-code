@@ -3,7 +3,7 @@ module Day9 where
 import           Data.List
 import           Data.List.Split
 import           Debug.Trace
-import           IntComp         hiding (main)
+import           Intcode         hiding (main)
 
 main :: IO ()
 main = do

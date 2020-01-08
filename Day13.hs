@@ -4,7 +4,7 @@ import           Data.List
 import           Data.List.Split
 import           Data.Map        as M hiding (drop, filter, take)
 import           Debug.Trace
-import           IntComp         hiding (main)
+import           Intcode         hiding (main)
 
 data Tile
   = Empty
@@ -33,11 +33,6 @@ toScreen (-1:0:score:xs) _ screen = toScreen xs score screen
 toScreen (x:y:tile:xs) score screen =
   let result = M.insert (x, y) (toEnum tile) screen
    in toScreen xs score result
-
-updateScreen :: (Int, Int, Int) -> (Screen, Int) -> (Screen, Int)
-updateScreen (-1, 0, score) (screen, _) = (screen, score)
-updateScreen (x, y, tile) (screen, score) =
-  (M.insert (x, y) (toEnum tile) screen, score)
 
 toScreen' xs score screen =
   trace ("to screen : \nin = " ++ (show xs)) toScreen xs score screen
@@ -91,47 +86,24 @@ nextMove a b
 nextMove' a b =
   trace ("next move : a = " ++ (show a) ++ " ; b = " ++ (show b)) nextMove' a b
 
-gameHistory :: [Int] -> (Screen, Int) -> Bool -> String
-gameHistory xs _ True =
-  let initSize = (width + 1) * (height + 1) * 3
-      screenScore = toScreen (take initSize xs) 0 M.empty
-   in (drawScreen screenScore) ++
-      "\n" ++ (gameHistory (drop initSize xs) screenScore False)
-gameHistory (x:y:tile:xs) screenScore False =
-  let updated = updateScreen (x, y, tile) screenScore
-   in (drawScreen updated) ++ "\n" ++ (gameHistory xs updated False)
-gameHistory [] screen False = ""
 
-playGame :: GameState -> Computer -> Int -> (Computer, Int)
-playGame gs comp offset =
+playGame :: GameState -> Computer -> (Computer, GameState)
+playGame gs comp =
   let move = nextMove (paddle gs) (ball gs)
-      next = run comp {input = [move], state = Running}
-      stateResult = state next
-      outputResult = output next
-      --nextOffset = length $ outputResult
-      -- outputToProcess = drop offset outputResult
-      (screenResult, scoreResult) =
-        toScreen outputResult (score gs) (screen gs)
-      nextGS =
+      compResult = run comp {input = [move], state = Running}
+      stateResult = state compResult
+      outputResult = output compResult
+      (screenResult, scoreResult) = toScreen outputResult (score gs) (screen gs)
+      gsResult =
         gs
           { screen = screenResult
           , score = scoreResult
           , ball = findBallX screenResult
           , paddle = findPaddleX screenResult
           }
-   in if stateResult == Halted  -- || offset > 20000
-        then (comp, scoreResult)
-        else playGame nextGS next { output = [] } 0
-
-playGame' gs comp offset =
-  trace
-    ("play game : offset = " ++
-     (show offset) ++
-     " ; p = " ++ (show $ paddle gs) ++ " ; b = " ++ (show $ ball gs))
-    playGame
-    gs
-    comp
-    offset
+   in if stateResult == Halted
+        then (compResult, gsResult)
+        else playGame gsResult compResult {output = []}
 
 main :: IO ()
 main = do
@@ -141,13 +113,13 @@ main = do
   let comp = boot memory
   let started = patchMemory comp 0 2
   let initGame = run started {state = Running}
-  --let next = run initGame {input = [-1], state = Running}
-  let (screen, score) = toScreen (output initGame) 0 M.empty
+  let (initScreen, initScore) = toScreen (output initGame) 0 M.empty
   let game =
         GS
-          { screen = screen
-          , score = score
-          , ball = findBallX screen
-          , paddle = findPaddleX screen
+          { screen = initScreen
+          , score = initScore
+          , ball = findBallX initScreen
+          , paddle = findPaddleX initScreen
           }
-  print $ playGame game initGame (length $ output initGame)
+  let (resultComp, resultState) = playGame game initGame
+  putStrLn $ drawScreen (screen resultState, score resultState)

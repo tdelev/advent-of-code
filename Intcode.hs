@@ -1,4 +1,4 @@
-module IntComp where
+module Intcode where
 
 import           Data.List.Split
 import           Data.Map        as M
