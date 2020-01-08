@@ -39,12 +39,12 @@ data State
 
 data Computer =
   Comp
-    { pc           :: Address
-    , memory       :: Memory
-    , input        :: [Int]
-    , output       :: [Int]
-    , relativeBase :: Int
-    , state        :: State
+    { computerPc     :: Address
+    , computerMemory :: Memory
+    , computerInput  :: [Int]
+    , computerOutput :: [Int]
+    , computerBase   :: Int
+    , computerState  :: State
     }
   deriving (Eq, Show)
 
@@ -76,7 +76,7 @@ updateMemory :: Address -> Int -> Memory -> Memory
 updateMemory = M.insert
 
 patchMemory :: Computer -> Int -> Int -> Computer
-patchMemory c a x = c {memory = updateMemory (A a) x (memory c)}
+patchMemory c a x = c {computerMemory = updateMemory (A a) x (computerMemory c)}
 
 readMemory :: Memory -> Int -> Access -> Address -> Int
 readMemory memory _ Direct address = findWithDefault 0 address memory
@@ -103,66 +103,75 @@ boot memory = Comp (A 0) memory [] [] 0 Wait
 getInstruction :: Computer -> Decoded
 getInstruction (Comp pc memory _ _ _ _) = decodeInstruction $ memory ! pc
 
-movePC :: Address -> Int -> Address
-movePC address delta = A ((asValue address) + delta)
+movePC :: Computer -> Int -> Address
+movePC c delta = A ((asValue (computerPc c)) + delta)
 
 binaryOp :: (Int -> Int -> Int) -> Computer -> Computer
 binaryOp op c =
-  c {pc = movePC (pc c) 4, memory = updateMemory address (op a b) (memory c)}
+  c
+    { computerPc = pc
+    , computerMemory = updateMemory address (op a b) (computerMemory c)
+    }
   where
     a = readValue c 1
     b = readValue c 2
+    pc = movePC c 4
     address = readA c 3
 
 outputOp :: Computer -> Computer
-outputOp c = c {pc = movePC (pc c) 2, output = current ++ [a]}
+outputOp c = c {computerPc = pc, computerOutput = current ++ [a]}
   where
-    current = output c
+    current = computerOutput c
     a = readValue c 1
+    pc = movePC c 2
 
 inputOp :: Computer -> Computer
 inputOp c =
   if inputSize == 0
-    then c {state = Wait}
+    then c {computerState = Wait}
     else c
-           { pc = movePC (pc c) 2
-           , memory = updateMemory a (head (input c)) (memory c)
-           , input = tail (input c)
-           , state = Running
+           { computerPc = pc
+           , computerMemory = updateMemory a (head input) (computerMemory c)
+           , computerInput = tail input
+           , computerState = Running
            }
   where
-    inputSize = length $ input c
+    input = computerInput c
+    inputSize = length $ input
     a = readA c 1
+    pc = movePC c 2
 
 inputOp' c = trace ("input Op : " ++ (show c)) inputOp c
 
 jumpOp :: (Int -> Bool) -> Computer -> Computer
-jumpOp f c = c {pc = resultPC}
+jumpOp f c = c {computerPc = pc}
   where
     a = readValue c 1
     b = A $ readValue c 2
-    resultPC =
+    pc =
       if f a
         then b
-        else movePC (pc c) 3
+        else movePC c 3
 
 compareOp :: (Int -> Int -> Bool) -> Computer -> Computer
-compareOp f c = c {pc = movePC (pc c) 4, memory = resultMemory}
+compareOp f c = c {computerPc = pc, computerMemory = memory}
   where
     a = readValue c 1
     b = readValue c 2
     storeAddress = readA c 3
+    pc = movePC c 4
     result =
       if f a b
         then 1
         else 0
-    resultMemory = updateMemory storeAddress result (memory c)
+    memory = updateMemory storeAddress result (computerMemory c)
 
 adjustBase :: Computer -> Computer
-adjustBase c = c {pc = movePC (pc c) 2, relativeBase = base}
+adjustBase c = c {computerPc = pc, computerBase = base}
   where
     a = readValue c 1
-    base = (relativeBase c) + a
+    base = (computerBase c) + a
+    pc = movePC c 2
 
 accessAt :: [Access] -> Int -> Access
 accessAt (x:y:z:_) n =
@@ -172,25 +181,25 @@ accessAt (x:y:z:_) n =
     3 -> z
 
 readValue :: Computer -> Int -> Int
-readValue computer n = readMemory cMemory cBase cAccess cAddress
+readValue computer n = readMemory memory base cAccess cAddress
   where
     (_, access) = getInstruction computer
     cAccess = accessAt access n
-    cMemory = memory computer
-    cBase = relativeBase computer
-    cAddress = movePC (pc computer) n
+    memory = computerMemory computer
+    base = computerBase computer
+    cAddress = movePC computer n
 
 readA :: Computer -> Int -> Address
-readA computer n = A $ (cMemory ! cAddress) + cBase
+readA computer n = A $ (cMemory ! cAddress) + base
   where
     (_, access) = getInstruction computer
-    cMemory = memory computer
+    cMemory = computerMemory computer
     cAccess = accessAt access n
-    cBase =
+    base =
       if cAccess == Relative
-        then relativeBase computer
+        then computerBase computer
         else 0
-    cAddress = movePC (pc computer) n
+    cAddress = movePC computer n
 
 readA' c x =
   trace ("readA : c = " ++ (show c) ++ " ; x = " ++ (show x)) readA c x
@@ -208,16 +217,16 @@ exec computer =
         LessThen   -> compareOp (<) computer
         Equals     -> compareOp (==) computer
         AdjustBase -> adjustBase computer
-        Halt       -> computer {state = Halted}
+        Halt       -> computer {computerState = Halted}
 
 run :: Computer -> Computer
 run computer =
-  let currentState = state computer
-   in if currentState == Wait || currentState == Halted
+  let state = computerState computer
+   in if state == Wait || state == Halted
         then computer
         else run $ exec computer
 
-run' comp = trace ("run : input = " ++ (show $ input comp)) run comp
+run' comp = trace ("run : input = " ++ (show $ computerInput comp)) run comp
 
 exec' comp = trace ("exec : " ++ (show comp)) exec comp
 
@@ -231,4 +240,4 @@ main = do
   let opcodes = [1102, 34915192, 34915192, 7, 4, 7, 99, 0]
   let memory = load opcodes
   let comp = boot memory
-  print $ run comp {state = Running, input = [5]}
+  print $ run comp {computerState = Running, computerInput = [5]}

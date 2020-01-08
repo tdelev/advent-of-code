@@ -20,10 +20,10 @@ type Screen = M.Map Position Tile
 
 data GameState =
   GS
-    { screen :: Screen
-    , score  :: Int
-    , ball   :: Int
-    , paddle :: Int
+    { gsScreen :: Screen
+    , gsScore  :: Int
+    , gsBall   :: Int
+    , gsPaddle :: Int
     }
   deriving (Show)
 
@@ -86,24 +86,23 @@ nextMove a b
 nextMove' a b =
   trace ("next move : a = " ++ (show a) ++ " ; b = " ++ (show b)) nextMove' a b
 
-
 playGame :: GameState -> Computer -> (Computer, GameState)
 playGame gs comp =
-  let move = nextMove (paddle gs) (ball gs)
-      compResult = run comp {input = [move], state = Running}
-      stateResult = state compResult
-      outputResult = output compResult
-      (screenResult, scoreResult) = toScreen outputResult (score gs) (screen gs)
+  let move = nextMove (gsPaddle gs) (gsBall gs)
+      compResult = run comp {computerInput = [move], computerState = Running}
+      state = computerState compResult
+      output = computerOutput compResult
+      (screenResult, scoreResult) = toScreen output (gsScore gs) (gsScreen gs)
       gsResult =
         gs
-          { screen = screenResult
-          , score = scoreResult
-          , ball = findBallX screenResult
-          , paddle = findPaddleX screenResult
+          { gsScreen = screenResult
+          , gsScore = scoreResult
+          , gsBall = findBallX screenResult
+          , gsPaddle = findPaddleX screenResult
           }
-   in if stateResult == Halted
+   in if state == Halted
         then (compResult, gsResult)
-        else playGame gsResult compResult {output = []}
+        else playGame gsResult compResult {computerOutput = []}
 
 main :: IO ()
 main = do
@@ -112,14 +111,14 @@ main = do
   let memory = load opcodes
   let comp = boot memory
   let started = patchMemory comp 0 2
-  let initGame = run started {state = Running}
-  let (initScreen, initScore) = toScreen (output initGame) 0 M.empty
+  let initGame = run started {computerState = Running}
+  let (initScreen, initScore) = toScreen (computerOutput initGame) 0 M.empty
   let game =
         GS
-          { screen = initScreen
-          , score = initScore
-          , ball = findBallX initScreen
-          , paddle = findPaddleX initScreen
+          { gsScreen = initScreen
+          , gsScore = initScore
+          , gsBall = findBallX initScreen
+          , gsPaddle = findPaddleX initScreen
           }
   let (resultComp, resultState) = playGame game initGame
-  putStrLn $ drawScreen (screen resultState, score resultState)
+  putStrLn $ drawScreen (gsScreen resultState, gsScore resultState)

@@ -12,4 +12,4 @@ main = do
   --let opcodes = [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99]
   let memory = load opcodes
   let comp = boot memory
-  print $ run comp {input = [2], state = Running}
+  print $ run comp {computerInput = [2], computerState = Running}
