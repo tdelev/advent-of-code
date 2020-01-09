@@ -15,7 +15,21 @@ type Chemical = (Int, String)
 
 type ReactionMap = M.Map String (Int, [Chemical])
 
-type FuelMap = M.Map String Float
+type SpareMap = M.Map String Int
+
+addSpare :: String -> Int -> SpareMap -> SpareMap
+addSpare = M.insertWith (+)
+
+updateSpare :: String -> Int -> SpareMap -> SpareMap
+updateSpare = M.insert
+
+addSpare' s i sm =
+  trace
+    ("add spare : s = " ++ (show s) ++ "; i = " ++ (show i))
+    addSpare
+    s
+    i
+    sm
 
 toReactionMap :: ([String], String) -> ReactionMap -> ReactionMap
 toReactionMap (xs, key) m =
@@ -30,67 +44,70 @@ asChemical s =
   let (a:b:_) = splitOn " " s
    in (toInt a, b)
 
-updateFuel :: FuelMap -> Int -> Chemical -> FuelMap
-updateFuel acc total (count, chemical) =
-  M.insertWith (+) chemical (count / total) acc
-
 isORE :: [String] -> Bool
 isORE xs = length xs == 1 && (head xs == "ORE")
 
-getMul :: Int -> Int -> Int
-getMul need available =
-  if need < available
-    then 1
-    else let res = need `div` available
-             m = need `mod` available
-          in if m > 0
-               then res + 1
-               else res
+pieces :: Int -> Int -> Int -> Int -> (Int, Int)
+pieces need parts available spare =
+  let total = parts * available + spare
+   in if need <= total
+        then (parts, total - need)
+        else pieces need (parts + 1) available spare
 
-buildFuelMap :: ReactionMap -> (Int, String) -> FuelMap -> FuelMap
-buildFuelMap rmap (need, key) acc =
-  if M.null rmap
-    then acc
+pieces' a b c d =
+  trace
+    ("pieces : need = " ++
+     (show a) ++
+     "; parts = " ++
+     (show b) ++ " ; av = " ++ (show c) ++ " ; spare = " ++ (show d))
+    pieces
+    a
+    b
+    c
+    d
+
+combine :: (Int, SpareMap) -> (Int, SpareMap) -> (Int, SpareMap)
+combine (ax, aSmap) (bx, _) = (ax + bx, aSmap)
+
+findFuel :: ReactionMap -> SpareMap -> (Int, String) -> (Int, SpareMap)
+findFuel rmap smap (need, key) =
+  if M.member key rmap == False
+    then (0, smap)
     else let (available, values) = rmap ! key
-             multiplier = getMul need available
-             resultAcc = foldl (\fm v -> updateFuel fm multiplier v) acc values
-             resultMap = M.delete key rmap
-             accList = (fmap (\x -> buildFuelMap resultMap x M.empty) values)
-             finalAcc = foldl (M.unionWith (+)) resultAcc accList
+             currentSpare = smap ! key
+             (multiplier, spare) = pieces need 0 available currentSpare
+             spareMap' = updateSpare key spare smap
+             needValues =
+               if multiplier > 0
+                 then fmap (\(n, c) -> (n * multiplier, c)) values
+                 else []
+             recurseResult =
+               foldl
+                 (\b a -> combine (findFuel rmap (snd b) a) b)
+                 (0, spareMap')
+                 needValues
           in if isORE (fmap snd values)
-               then acc
-               else finalAcc
+               then (multiplier * (fst $ head values), spareMap')
+               else recurseResult
 
-findFuel' :: ReactionMap -> (Int, String) -> Int
-findFuel' rmap (need, key) =
-  if M.null rmap
-    then 0
-    else let (available, values) = rmap ! key
-             multiplier = getMul need available
-             resultMap = M.delete key rmap
-             total = sum $ fmap (\x -> findFuel resultMap x) values
-          in if isORE (fmap snd values)
-               then multiplier * (fst $ head values)
-               else total
+findFuel' rmap smap nk =
+  trace
+    ("\nfind fuel : \nmap = " ++
+     (show rmap) ++ " ;\nspare = " ++ (show smap) ++ "\nkey = " ++ (show nk))
+    findFuel
+    rmap
+    smap
+    nk
 
-findFuel rmap nk = trace ("find fuel : map = " ++ (show rmap) ++ " ; key = " ++ (show nk)) findFuel' rmap nk
-
-
-findORE :: (String, Int) -> ReactionMap -> Int
-findORE (key, total) rmap =
-  let (count, value) = rmap ! key
-   in if isORE (fmap snd value)
-        then let oreV = fst $ head value
-              in (getMul total count) * oreV
-        else 0
+initSpareMap :: ReactionMap -> SpareMap
+initSpareMap rmap =
+  foldl (\smap key -> addSpare key 0 smap) M.empty (M.keys rmap)
 
 main :: IO ()
 main = do
-  input <- readFile "day14test.txt"
+  input <- readFile "day14.txt"
   let rows = lines input
   let pairs = fmap (toPair . splitOn " => ") rows
   let reactions = asMap pairs
-  let fuels = buildFuelMap reactions (1, "FUEL") M.empty
-  --print $ findFuel reactions (1, "FUEL")
-  print $ fuels
-  print $ sum $ fmap (\x -> findORE x reactions) (M.toList fuels)
+  let spareMap = initSpareMap reactions
+  print $ fst $ findFuel reactions spareMap (1, "FUEL")
