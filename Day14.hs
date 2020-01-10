@@ -24,12 +24,7 @@ updateSpare :: String -> Int -> SpareMap -> SpareMap
 updateSpare = M.insert
 
 addSpare' s i sm =
-  trace
-    ("add spare : s = " ++ (show s) ++ "; i = " ++ (show i))
-    addSpare
-    s
-    i
-    sm
+  trace ("add spare : s = " ++ (show s) ++ "; i = " ++ (show i)) addSpare s i sm
 
 toReactionMap :: ([String], String) -> ReactionMap -> ReactionMap
 toReactionMap (xs, key) m =
@@ -54,17 +49,31 @@ pieces need parts available spare =
         then (parts, total - need)
         else pieces need (parts + 1) available spare
 
-pieces' a b c d =
+pbs need low hi available spare =
+  let parts = low + ((hi - low) `div` 2)
+      total = parts * available + spare
+   in if need <= total && need > ((parts - 1) * available + spare)
+        then (parts, total - need)
+        else if need < total
+               then pbs need low parts available spare
+               else pbs need (parts + 1) hi available spare
+
+pbs' n l h a s =
   trace
-    ("pieces : need = " ++
-     (show a) ++
-     "; parts = " ++
-     (show b) ++ " ; av = " ++ (show c) ++ " ; spare = " ++ (show d))
-    pieces
+    ("pbs : need = " ++
+     (show n) ++
+     " ; parts = " ++
+     (show l) ++
+     " ; h = " ++ (show h) ++ " ; av = " ++ (show a) ++ " ; sp = " ++ (show s))
+    pbs
+    n
+    l
+    h
     a
-    b
-    c
-    d
+    s
+
+pieces' :: Int -> Int -> Int -> (Int, Int)
+pieces' need available spare = pbs need 0 need available spare
 
 combine :: (Int, SpareMap) -> (Int, SpareMap) -> (Int, SpareMap)
 combine (ax, aSmap) (bx, _) = (ax + bx, aSmap)
@@ -75,7 +84,7 @@ findFuel rmap smap (need, key) =
     then (0, smap)
     else let (available, values) = rmap ! key
              currentSpare = smap ! key
-             (multiplier, spare) = pieces need 0 available currentSpare
+             (multiplier, spare) = pieces' need available currentSpare
              spareMap' = updateSpare key spare smap
              needValues =
                if multiplier > 0
@@ -103,11 +112,30 @@ initSpareMap :: ReactionMap -> SpareMap
 initSpareMap rmap =
   foldl (\smap key -> addSpare key 0 smap) M.empty (M.keys rmap)
 
+findMaxFuel :: ReactionMap -> SpareMap -> Int
+findMaxFuel rmap smap = findMaxBinary 0 t (-1) rmap smap
+
+t :: Int
+t = 1000000000000
+
+findMaxBinary :: Int -> Int -> Int -> ReactionMap -> SpareMap -> Int
+findMaxBinary low hi prevResult rmap smap =
+  let mid = low + ((hi - low) `div` 2)
+      result = fst $ findFuel rmap smap (mid, "FUEL")
+   in if result == prevResult
+        then mid
+        else if result < t
+               then findMaxBinary (mid + 1) hi result rmap smap
+               else findMaxBinary low mid result rmap smap
+
 main :: IO ()
 main = do
   input <- readFile "day14.txt"
+  --line <- getLine
+  --let n = toInt line
   let rows = lines input
   let pairs = fmap (toPair . splitOn " => ") rows
   let reactions = asMap pairs
   let spareMap = initSpareMap reactions
-  print $ fst $ findFuel reactions spareMap (1, "FUEL")
+  print $ fst $ findFuel reactions spareMap (998536, "FUEL")
+  --print $ findMaxFuel reactions spareMap
