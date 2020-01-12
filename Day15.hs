@@ -3,7 +3,7 @@ module Day15 where
 import           Data.Foldable
 import           Data.List
 import           Data.List.Split
-import           Data.Map        as M hiding (drop, filter, foldl, take, toList)
+import           Data.Map        as M hiding (drop, filter, foldl, take)
 import           Data.Sequence   as S hiding (filter, replicate, zip)
 import           Debug.Trace
 import           Intcode         hiding (main)
@@ -12,6 +12,7 @@ data Tile
   = Wall
   | Open
   | Target
+  | Oxigen
   deriving (Eq, Show, Enum)
 
 data Move
@@ -40,25 +41,25 @@ data Droid =
     }
   deriving (Eq, Show)
 
-type Queue = S.Seq SearchState
+type Queue a = S.Seq a
 
 type SearchState = (Move, Droid)
 
-emptyQueue :: Queue
+emptyQueue :: Queue a
 emptyQueue = S.empty
 
-isEmpty :: Queue -> Bool
+isEmpty :: Queue a -> Bool
 isEmpty queue = S.null queue
 
-enqueue :: SearchState -> Queue -> Queue
-enqueue state queue = queue |> state
+enqueue :: a -> Queue a -> Queue a
+enqueue a queue = queue |> a
 
-enqueueAll :: [SearchState] -> Queue -> Queue
-enqueueAll moves queue = foldl (\q move -> enqueue move q) queue moves
+enqueueAll :: [a] -> Queue a -> Queue a
+enqueueAll xs queue = foldl (\q x -> enqueue x q) queue xs
 
-pop :: Queue -> (Queue, SearchState)
+pop :: Queue a -> (Queue a, a)
 pop queue =
-  let list = toList queue
+  let list = Data.Foldable.toList queue
    in (S.fromList $ tail list, head list)
 
 coverArea :: Position -> Tile -> Area -> Area
@@ -80,9 +81,9 @@ processStatus ::
   -> Position
   -> Droid
   -> Area
-  -> Queue
+  -> Queue SearchState
   -> Computer
-  -> (Droid, Area, Queue)
+  -> (Droid, Area, Queue SearchState)
 processStatus move status pos droid area queue comp =
   let position = getPosition move $ pos
       tile = toEnum status
@@ -108,7 +109,13 @@ notVisited area move pos =
   let position = getPosition move $ pos
    in M.member position area == False
 
-moveDroid :: Droid -> Area -> Queue -> Move -> Position -> (Droid, Area, Queue)
+moveDroid ::
+     Droid
+  -> Area
+  -> Queue SearchState
+  -> Move
+  -> Position
+  -> (Droid, Area, Queue SearchState)
 moveDroid droid area queue move position =
   let command = asCommand move
       comp = droidComp droid
@@ -134,7 +141,7 @@ initDroid comp =
 initArea :: Area
 initArea = coverArea (0, 0) Open M.empty
 
-bfs :: Area -> Queue -> Droid -> (Droid, Area)
+bfs :: Area -> Queue SearchState -> Droid -> (Droid, Area)
 bfs area queue d =
   if isEmpty queue
     then (d, area)
@@ -144,10 +151,32 @@ bfs area queue d =
                if notVisited area move position
                  then moveDroid droid area queue' move position
                  else (droid, area, queue')
-             targetVisited = droidTarget droid'
+             targetVisited = False -- droidTarget droid'
           in if targetVisited
                then (droid', area')
                else bfs area' queue'' droid'
+
+type FillState = (Position, Int)
+
+canMove :: Area -> Position -> Bool
+canMove area position =
+  let exist = M.member position area
+      isOpen = area ! position == Open
+   in exist && isOpen
+
+bfsFill :: Area -> Queue FillState -> Int -> (Area, Int)
+bfsFill area queue minute =
+  if isEmpty queue
+    then (area, minute)
+    else let (queue', (position, minute')) = pop queue
+             area' = coverArea position Oxigen area
+             next = filter (canMove area') $ nextPositions position
+             toQueue = fmap (\x -> (x, minute' + 1)) next
+             queue'' = enqueueAll toQueue queue'
+          in bfsFill area' queue'' minute'
+
+nextPositions :: Position -> [Position]
+nextPositions position = fmap (\move -> getPosition move position) directions
 
 drawTile :: Area -> Position -> Char
 drawTile area position =
@@ -159,6 +188,7 @@ drawTile area position =
                       Open   -> '.'
                       Wall   -> '#'
                       Target -> 'x'
+                      Oxigen -> 'o'
            else ' '
 
 drawArea :: Area -> String
@@ -172,6 +202,9 @@ drawArea area =
         [[(drawTile area (x, y)) | x <- [minx .. maxx]] | y <- [miny .. maxy]]
    in unlines lines
 
+findStart :: Area -> Position
+findStart area = fst $ head $ filter (\(key, value) -> value == Target) $ (M.toList area)
+
 main :: IO ()
 main = do
   input <- readFile "day15.txt"
@@ -181,5 +214,10 @@ main = do
   let droid = initDroid comp
   let startQueue = enqueueAll (zip directions (rep droid)) emptyQueue
   let (droid', area) = bfs initArea startQueue droid
-  print $ droid'
-  putStrLn $ drawArea area
+  --print $ droid'
+  --putStrLn $ drawArea area
+  let start = findStart area
+  let startQueue = enqueue (start, 0) emptyQueue
+  let result = bfsFill area startQueue 0
+  putStrLn $ drawArea $ fst result
+  print $ snd result
