@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 module Day16 where
 
 import           Data.Char
@@ -24,14 +22,21 @@ fft xs =
    in fmap (\p -> onesDigit $ fftPhase' xs (fftPattern p)) [1 .. size]
 
 fft' :: [Int] -> [Int]
-fft' xs = reverse $ fftMagic (reverse xs) 0
+fft' xs = snd $ fftMagicB xs --reverse $ fftMagic (reverse xs) 0
 
 fftMagic :: [Int] -> Int -> [Int]
 fftMagic (x:[]) n = ((n + x) `mod` 10) : []
 fftMagic (x:xs) n = ((n + x) `mod` 10) : (fftMagic xs (n + x))
 
+fftMagicB :: [Int] -> (Int, [Int])
+fftMagicB (x:[]) = (x, [x])
+fftMagicB (x:xs) =
+  let (total, array) = fftMagicB xs
+      total' = x + total
+   in (total', (total' `mod` 10) : array)
+
 fftN :: [Int] -> Int -> [Int]
-fftN xs n = foldl' (\list _ -> fft' list) xs [1..n]
+fftN xs n = foldl' (\list _ -> fft' list) xs [1 .. n]
   --if n == 0
     --then xs
     --else fftN (fft' xs) (n - 1)
@@ -55,10 +60,5 @@ main = do
   let list2 = concat $ replicate 10000 list
   let offset = toInt $ asString $ take 7 list2
   let size = length list2
-  let total = (size - offset) * 2
-  let final = drop (size - total) list2
-  print $ length final
-  print $ take 8 $ fftN final 20
-  --print final
-  --print $ take 8 $ drop (total `div` 2) $ fft' final
-  --print $ asString $ drop 8 $ fftN final 100
+  let final = drop offset list2
+  print $ asString $ take 8 $ fftN final 100
