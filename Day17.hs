@@ -99,13 +99,10 @@ type Visited = Set Position
 
 type IntersectionEntered = Set (Position, Position)
 
-type SearchState = (Visited, [Position], Position)
+type SearchState = (Visited, [Position], [Position])
 
 notVisited :: SearchState -> View -> Position -> Bool
-notVisited (visited, (current:_), _) view position =
-  if isPosIntersection view current
-    then False
-    else Set.notMember position visited
+notVisited (visited, (current:_), _) view position = Set.notMember position visited
 
 notVisited' state view position =
   trace
@@ -145,7 +142,7 @@ updateState (visited, current, intersection) view position =
     visited' = Set.insert position visited
     intersection' =
       if isCrossroad view position
-        then position
+        then position:intersection
         else intersection
 
 findPaths :: View -> SearchState -> Set Position -> [[Position]]
@@ -153,15 +150,15 @@ findPaths view state dust =
   let (visited, current, intersection) = state
       position = head current
       -- next = explorePosition view position
-      next = filter (notVisited state view) $ explorePosition' view position
+      next = filter (notVisited state view) $ explorePosition view position
    in if null next
-        then if isComplete' current dust
+        then if isComplete current dust
                then [current]
-               else if length current > 10
-                      then [current]
+               else if null intersection
+                      then []
                       else findPaths
                              view
-                             (visited, intersection : current, intersection)
+                             (visited, (head intersection) : current, tail intersection)
                              dust
         else let states = fmap (updateState state view) next
               in concat $ fmap (\s -> findPaths view s dust) states
@@ -204,6 +201,6 @@ main
   let first = head $ explorePosition view start
   print $ first
   print $ dust
-  let state = (Set.empty, [first], start)
+  let state = (Set.empty, [first], [])
   -- print $ explorePosition view (9, 8)
-  print $ findPaths view state dust
+  print $ head $ findPaths view state dust
