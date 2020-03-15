@@ -46,9 +46,9 @@ findX comp y offset = find comp (0 + offset) y 10000
 
 checkSquare :: Computer -> Int -> Int -> Bool
 checkSquare comp x y =
-  let a = explorePos comp (x, y - 99)
-      b = explorePos comp (x + 99, y - 99)
-      c = explorePos comp (x + 99, y)
+  let a = explorePos comp (x + 99, y)
+      b = explorePos comp (x, y + 99)
+      c = explorePos comp (x + 99, y + 99)
    in a == 1 && b == 1 && c == 1
 
 -- firstSquare :: Computer -> Int -> Int
@@ -92,23 +92,12 @@ main = do
   let memory = load opcodes
   let comp = boot memory
   -- Part 1
-  let beamMap = explore comp 49 49
+  -- let beamMap = explore comp 49 49
   -- let count = sum $ fmap snd $ M.toList beamMap
   -- print $ count
-  putStrLn $ draw beamMap
+  -- putStrLn $ draw beamMap
   -- Part 2
-  -- print $ firstSquare comp 810
   -- print $ findX comp 2169 1100
-  -- print $ checkSquare comp 1734 2169
-  print $ explorePos comp (0, 0)
-  print $ explorePos comp (945, 1283)
-  print $ explorePos comp (1283, 945)
-  print $ explorePos comp (944, 1282)
-  print $ explorePos comp (1282, 943)
-  -- print $ explorePos comp (1734, 2071)
-  -- print $ explorePos comp (1833, 2070)
-  -- print $ explorePos comp (1734, 2166)
-  -- print $ explorePos comp (1734, 2167)
-  -- print $ explorePos comp (1734, 2168)
-  -- print $ explorePos comp (1734, 2169)
-  -- print $ explorePos comp (1833, 2169)
+  print $ explorePos comp (1732, 2070)
+  print $ checkSquare comp 1733 2069
+  print $ explorePos comp (1734, 2168)
