@@ -1,1 +1,3 @@
-# AOC 2019
+# Advent of Code solutions
+
+https://adventofcode.com/
