@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    fs,
-};
+use std::{error::Error, fs};
 #[derive(Debug)]
 struct FromToRange {
     destination: u32,
@@ -15,16 +11,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Part 1
     let (_, seeds_line) = input.lines().next().unwrap().split_once(":").unwrap();
     let seeds: Vec<u32> = line_to_numbers(seeds_line);
-    //let mut maps: HashMap<&str, Vec<FromToRange>> = HashMap::new();
     let mut maps: Vec<Vec<FromToRange>> = Vec::new();
     let mut key: &str = "";
     input.lines().skip(2).for_each(|line| {
         if line.contains(":") {
             key = line.trim_end_matches(":");
             maps.push(Vec::new());
-            //maps.insert(key, Vec::new());
         } else if !line.trim().is_empty() {
-            //let mappings = maps.get_mut(key).unwrap();
             let mappings = maps.last_mut().unwrap();
             let range_values = line_to_numbers(line.trim());
             mappings.push(FromToRange {
@@ -34,8 +27,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             });
         }
     });
-    println!("seeds: {:?}", seeds);
-    println!("mapps: {:?}", maps);
     let result = seeds
         .into_iter()
         .map(|seed| maps.iter().fold(seed, |acc, map| mapping_final(acc, map)))
