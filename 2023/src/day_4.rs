@@ -1,7 +1,7 @@
 use std::{collections::HashSet, convert::TryInto, error::Error, fs, usize};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = fs::read_to_string("input/day_4_sample.txt")?;
+    let input = fs::read_to_string("input/day_4.txt")?;
     // Part 1
     //let result: u32 = input
     //    .lines()
@@ -15,23 +15,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     //    .sum();
     // Part 2
     let mut cards: Vec<u32> = (0..input.lines().count()).map(|_| 0).collect();
-    let result: u32 = input
-        .lines()
-        .enumerate()
-        .map(|(i, line)| {
-            let (_, numbers_part) = line.split_once(": ").unwrap();
-            let (winning, guesses) = numbers_part.split_once(" | ").unwrap();
-            let w: HashSet<u32> = numbers(winning.trim()).into_iter().collect();
-            let h: Vec<u32> = numbers(guesses.trim()).into_iter().collect();
-            let c = count(w, h);
-            println!("i: {}, c: {}", i, c);
-            let end: usize = i + (c as usize);
-            ((i + 1)..=end).for_each(|j| cards[j] += cards[i] + 1);
-            cards[i] += 1;
-            println!("cccc: {:?}", cards);
-            c
-        })
-        .sum();
+    input.lines().enumerate().for_each(|(i, line)| {
+        let (_, numbers_part) = line.split_once(": ").unwrap();
+        let (winning, guesses) = numbers_part.split_once(" | ").unwrap();
+        let w: HashSet<u32> = numbers(winning.trim()).into_iter().collect();
+        let h: Vec<u32> = numbers(guesses.trim()).into_iter().collect();
+        let c = count(w, h);
+        let end: usize = i + (c as usize);
+        ((i + 1)..=end).for_each(|j| cards[j] += cards[i] + 1);
+        cards[i] += 1;
+    });
     println!("cards: {:?}", cards);
     let result: u32 = cards.iter().sum();
     println!("{}", result);
