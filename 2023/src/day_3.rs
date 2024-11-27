@@ -4,7 +4,7 @@ type Range = (i32, i32);
 type Number = (i32, Range, i32);
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = fs::read_to_string("input/day_3.txt")?;
+    let input = fs::read_to_string("input/day_3b_sample.txt")?;
     //let input = fs::read_to_string("input/day_3_sample.txt")?;
     // Part 1
     //let symbols = symbols(input.as_str());
@@ -26,7 +26,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .enumerate()
         .flat_map(|(i, line)| numbers_from_line(line, i as i32))
         .collect();
+    println!("{:?}", numbers);
     let parts = parts(&input);
+    println!("{:?}", parts);
     let result: i32 = parts
         .into_iter()
         .map(|part| {
