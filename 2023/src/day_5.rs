@@ -1,4 +1,4 @@
-use std::{error::Error, fs};
+use std::{error::Error, fs, u32};
 #[derive(Debug)]
 struct FromToRange {
     destination: u32,
@@ -7,10 +7,10 @@ struct FromToRange {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = fs::read_to_string("input/day_5.txt")?;
+    let input = fs::read_to_string("input/day_5_sample.txt")?;
     // Part 1
     let (_, seeds_line) = input.lines().next().unwrap().split_once(":").unwrap();
-    let seeds: Vec<u32> = line_to_numbers(seeds_line);
+    //let seeds: Vec<u32> = line_to_numbers(seeds_line);
     let mut maps: Vec<Vec<FromToRange>> = Vec::new();
     let mut key: &str = "";
     input.lines().skip(2).for_each(|line| {
@@ -27,17 +27,60 @@ fn main() -> Result<(), Box<dyn Error>> {
             });
         }
     });
-    let result = seeds
-        .into_iter()
-        .map(|seed| maps.iter().fold(seed, |acc, map| mapping_final(acc, map)))
-        .min();
-    println!("{:?}", result);
+    // Part 2
+    println!("line: {}", seeds_line);
+    let seeds = line_to_ranges(seeds_line);
+    println!("seeds: {:?}", seeds);
+    for seed in seeds {
+        println!("min range: {}", min_range(seed, &maps));
+    }
+    //let result = seeds
+    //    .into_iter()
+    //    .map(|seed| maps.iter().fold(seed, |acc, map| mapping_final(acc, map)))
+    //    .min();
+    //println!("{:?}", result);
     // Part 2
     Ok(())
 }
 
+fn min_range(range: (u32, u32), ranges: &Vec<Vec<FromToRange>>) -> u32 {
+    let mut min = u32::MAX;
+    let (start, end) = range;
+    println!("start: {start:?}, end: {end:?}");
+    for i in start..end {
+        for range in ranges {
+            let mapping = mapping_final(i, range);
+            println!("i: {i:?}, mapping: {mapping:?}");
+            if mapping < min {
+                min = mapping;
+            }
+        }
+    }
+    min
+}
+
 fn line_to_numbers(line: &str) -> Vec<u32> {
     line.trim().split(" ").map(|n| n.parse().unwrap()).collect()
+}
+
+fn line_to_ranges(line: &str) -> Vec<(u32, u32)> {
+    let first: Vec<u32> = line
+        .split_ascii_whitespace()
+        .enumerate()
+        .filter(|(i, _)| i % 2 == 0)
+        .map(|(_, n)| n.parse().unwrap())
+        .collect();
+    let second: Vec<u32> = line
+        .split_ascii_whitespace()
+        .enumerate()
+        .filter(|(i, _)| i % 2 == 1)
+        .map(|(_, n)| n.parse().unwrap())
+        .collect();
+    first
+        .into_iter()
+        .zip(second.into_iter())
+        .map(|(a, b)| (a, a + b))
+        .collect()
 }
 
 fn mapping(input: u32, from_to: &FromToRange) -> Option<u32> {
@@ -118,5 +161,11 @@ mod tests {
         ];
         let actual = mapping_final(10, &mappings);
         assert_eq!(actual, 10);
+    }
+
+    #[test]
+    fn test_line_to_range() {
+        let actual = line_to_ranges("2 4 7 3");
+        assert_eq!(actual, vec![(2, 6), (7, 10)]);
     }
 }
