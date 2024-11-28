@@ -1,4 +1,4 @@
-use std::{error::Error, fs, u32};
+use std::{cmp, error::Error, fs, u32};
 #[derive(Debug)]
 struct FromToRange {
     destination: u32,
@@ -15,16 +15,20 @@ impl FromToRange {
     }
 
     fn in_range(&self, input: u32) -> bool {
-        input >= self.source && input <= self.destination_to()
+        input >= self.source && input <= self.source_to()
     }
 
-    //fn in_range_remaining(&self, input: u32) -> u32 {
-    //    if self.in_range(input) {
-    //        self.destination_to() - input
-    //    } else {
-    //
-    //    }
-    //}
+    fn map_range(&self, input: (u32, u32)) -> Option<(u32, u32)> {
+        let (start, end) = input;
+        if self.in_range(start) {
+            Some((
+                self.destination + (start - self.source),
+                cmp::min(self.destination + end, self.destination_to()),
+            ))
+        } else {
+            None
+        }
+    }
 
     fn map(&self, input: u32) -> Option<u32> {
         if self.in_range(input) {
@@ -183,5 +187,27 @@ mod tests {
     fn test_line_to_range() {
         let actual = line_to_ranges("2 4 7 3");
         assert_eq!(actual, vec![(2, 6), (7, 10)]);
+    }
+
+    #[test]
+    fn test_map_range() {
+        let actual = FromToRange {
+            destination: 1,
+            source: 20,
+            range: 10,
+        }
+        .map_range((25, 30));
+        assert_eq!(actual, Some((6, 10)));
+    }
+
+    #[test]
+    fn test_map_range_overflow() {
+        let actual = FromToRange {
+            destination: 1,
+            source: 21,
+            range: 15,
+        }
+        .map_range((25, 40));
+        assert_eq!(actual, Some((5, 15)));
     }
 }
