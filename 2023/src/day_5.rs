@@ -5,7 +5,35 @@ struct FromToRange {
     source: u32,
     range: u32,
 }
+impl FromToRange {
+    fn source_to(&self) -> u32 {
+        self.source + self.range - 1
+    }
 
+    fn destination_to(&self) -> u32 {
+        self.destination + self.range - 1
+    }
+
+    fn in_range(&self, input: u32) -> bool {
+        input >= self.source && input <= self.destination_to()
+    }
+
+    //fn in_range_remaining(&self, input: u32) -> u32 {
+    //    if self.in_range(input) {
+    //        self.destination_to() - input
+    //    } else {
+    //
+    //    }
+    //}
+
+    fn map(&self, input: u32) -> Option<u32> {
+        if self.in_range(input) {
+            Some(self.destination + (input - self.source))
+        } else {
+            None
+        }
+    }
+}
 fn main() -> Result<(), Box<dyn Error>> {
     let input = fs::read_to_string("input/day_5_sample.txt")?;
     // Part 1
@@ -83,16 +111,8 @@ fn line_to_ranges(line: &str) -> Vec<(u32, u32)> {
         .collect()
 }
 
-fn mapping(input: u32, from_to: &FromToRange) -> Option<u32> {
-    if input >= from_to.source && input <= from_to.source + (from_to.range - 1) {
-        Some(from_to.destination + (input - from_to.source))
-    } else {
-        None
-    }
-}
-
 fn mapping_final(input: u32, ranges: &Vec<FromToRange>) -> u32 {
-    let result = ranges.iter().find_map(|r| mapping(input, r));
+    let result = ranges.iter().find_map(|r| r.map(input));
     result.unwrap_or(input)
 }
 
@@ -103,27 +123,23 @@ mod tests {
 
     #[test]
     fn test_mapping_none() {
-        let actual = mapping(
-            79,
-            &FromToRange {
-                destination: 50,
-                source: 98,
-                range: 2,
-            },
-        );
+        let actual = FromToRange {
+            destination: 50,
+            source: 98,
+            range: 2,
+        }
+        .map(79);
         assert_eq!(actual, None);
     }
 
     #[test]
     fn test_mappings_ok() {
-        let actual = mapping(
-            79,
-            &FromToRange {
-                destination: 52,
-                source: 50,
-                range: 48,
-            },
-        );
+        let actual = FromToRange {
+            destination: 52,
+            source: 50,
+            range: 48,
+        }
+        .map(79);
         assert_eq!(actual, Some(81));
     }
 
