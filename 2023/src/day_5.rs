@@ -71,22 +71,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     // Part 2
-    println!("line: {}", seeds_line);
     let seeds = line_to_ranges(seeds_line);
     let mut result: Vec<Range> = Vec::new();
-    println!("seeds: {:?}", seeds);
     let mut result_min = u64::MAX;
     for seed in seeds.iter() {
-        println!("seed: {:?}", seed);
         let mut ranges = vec![*seed];
         for mappings in maps.iter() {
-            //println!("mappings: {:?}", mappings);
             let next = ranges.clone();
             ranges = Vec::new();
-            //println!("==========next: {:?}", next);
             for range in next.iter() {
                 let local = map_ranges(mappings, *range);
-                //println!("range: {:?} -> {:?}", range, local);
                 for l in local.into_iter() {
                     ranges.push(l);
                 }
@@ -95,26 +89,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         let local_min = result.iter().map(|(first, _)| first).min().unwrap();
         result_min = min(result_min, *local_min);
-        println!("\nresult: {:?}\n", result);
     }
     println!("{}", result_min);
-    //let result = seeds
-    //    .into_iter()
-    //    .map(|seed| maps.iter().fold(seed, |acc, map| mapping_final(acc, map)))
-    //    .min();
-    //println!("{:?}", result);
-    // Part 2
     Ok(())
 }
 
 fn min_range(range: (u64, u64), ranges: &Vec<Vec<FromToRange>>) -> u64 {
     let mut min = u64::MAX;
     let (start, end) = range;
-    println!("start: {start:?}, end: {end:?}");
     for i in start..end {
         for range in ranges {
             let mapping = mapping_final(i, range);
-            println!("i: {i:?}, mapping: {mapping:?}");
             if mapping < min {
                 min = mapping;
             }
@@ -156,13 +141,9 @@ fn map_ranges(mappings: &Vec<FromToRange>, range: Range) -> Vec<Range> {
     let mut result: Vec<Range> = Vec::new();
     let (mut start, end) = range;
     for mapping in mappings.iter() {
-        //println!("start-end: {}-{}", start, end);
-        //println!("mapping: {:?}", mapping);
         if let Some((m_start, m_end)) = mapping.map_range((start, end)) {
-            //println!("m_start-m_end: {}-{}", m_start, m_end);
             result.push((m_start, m_end));
             let consumed = m_end - m_start + 1;
-            //println!("consumed: {:?}", consumed);
             start += consumed;
         }
         if start >= end {
