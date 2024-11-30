@@ -1,6 +1,12 @@
-use std::{collections::HashMap, convert::TryInto, error::Error, fs};
+use std::{
+    cmp::{self, Ordering},
+    collections::HashMap,
+    convert::TryInto,
+    error::Error,
+    fs,
+};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Ord, Eq, PartialOrd, Clone)]
 enum Hand {
     FiveOfAKind,
     FourOfAKind,
@@ -11,12 +17,98 @@ enum Hand {
     HighKard,
 }
 
+#[derive(Debug)]
+struct HandPoints {
+    hand: Hand,
+    hand_with_joker: Hand,
+    source: String,
+    converted: String,
+    bid: u32,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = fs::read_to_string("input/day_7_sample.txt")?;
+    let input = fs::read_to_string("input/day_7.txt")?;
     // Part 1
-    hand("32T3K");
+    let mut hands: Vec<HandPoints> = input
+        .lines()
+        .map(|l| l.split_once(" ").unwrap())
+        .map(|(h, bid)| HandPoints {
+            hand: hand(h),
+            source: h.to_string(),
+            converted: h
+                .to_string()
+                .replace("J", "1")
+                .replace("Q", "C")
+                .replace("K", "D")
+                .replace("A", "E")
+                .replace("T", "A"),
+            hand_with_joker: hand_with_joker(h),
+            bid: bid.parse().unwrap(),
+        })
+        .collect();
+    hands.sort_by(|a, b| {
+        let first = b.hand_with_joker.cmp(&a.hand_with_joker);
+        if first == Ordering::Equal {
+            a.converted.cmp(&b.converted)
+        } else {
+            first
+        }
+    });
+    //let result: u32 = hands
+    //    .iter()
+    //    .enumerate()
+    //    .map(|(i, hand)| (i as u32 + 1) * hand.bid)
+    //    .sum();
     // Part 2
+    let result: u32 = hands
+        .iter()
+        .enumerate()
+        .map(|(i, hand)| (i as u32 + 1) * hand.bid)
+        .sum();
+    for h in hands {
+        if h.hand_with_joker != h.hand {
+            println!("{} : {:?} -> {:?}", h.source, h.hand, h.hand_with_joker);
+        }
+    }
+    println!("{}", result);
     Ok(())
+}
+
+fn hand_with_joker(input: &str) -> Hand {
+    let mut jokers: u8 = input
+        .chars()
+        .filter(|c| *c == 'J')
+        .count()
+        .try_into()
+        .unwrap();
+    let input_no_jokers: String = input.chars().filter(|c| *c != 'J').collect();
+    let mut hand = hand(input);
+    let total_jokers = jokers;
+    println!("jokers: {}", jokers);
+    println!("hand: {:?}", hand);
+    while jokers > 0 {
+        hand = match hand {
+            Hand::FiveOfAKind => Hand::FiveOfAKind,
+            Hand::FourOfAKind => Hand::FiveOfAKind,
+            Hand::FullHouse => Hand::FourOfAKind,
+            Hand::ThreeOfAKind => {
+                if total_jokers == 3 {
+                    jokers -= 2;
+                }
+                Hand::FourOfAKind
+            }
+            Hand::TwoPairs => Hand::FullHouse,
+            Hand::OnePair => {
+                if total_jokers == 2 {
+                    jokers -= 1;
+                }
+                Hand::ThreeOfAKind
+            }
+            Hand::HighKard => Hand::OnePair,
+        };
+        jokers -= 1;
+    }
+    hand
 }
 
 fn hand(input: &str) -> Hand {
@@ -30,7 +122,6 @@ fn hand(input: &str) -> Hand {
             acc
         }
     });
-    println!("map: {:?}", map);
     if map.len() == 1 {
         Hand::FiveOfAKind
     } else if map.len() == 2 {
@@ -89,5 +180,20 @@ mod tests {
     #[test]
     fn test_high_card() {
         assert_eq!(hand("12AKQ"), Hand::HighKard);
+    }
+
+    #[test]
+    fn test_hand_with_joker() {
+        assert_eq!(hand_with_joker("8TTJ7"), Hand::ThreeOfAKind);
+    }
+
+    #[test]
+    fn test_hand_with_joker_one_pair_jokers() {
+        assert_eq!(hand_with_joker("J367J"), Hand::ThreeOfAKind);
+    }
+
+    #[test]
+    fn test_hand_with_joker_three_of_a_kind_jokers() {
+        assert_eq!(hand_with_joker("7JJJ5"), Hand::FourOfAKind);
     }
 }
