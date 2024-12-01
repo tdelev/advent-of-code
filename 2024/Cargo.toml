@@ -1,0 +1,10 @@
+bin = [
+{ name = "main", path = "src/main.rs"},
+{ name = "day_1", path = "src/day_1.rs" },
+]
+
+[package]
+name = "rust-2024"
+version = "0.1.0"
+
+[dependencies]
