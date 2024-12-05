@@ -67,12 +67,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Part 2
     let result: usize = (1..(lines.len() - 1))
         .map(|i| {
-            let copy = lines.clone();
             lines[i]
                 .chars()
                 .enumerate()
-                .filter(move |(j, c)| {
-                    *j > 0 && *j < copy[i].len() - 1 && *c == 'A' && check_mas(&copy, i, *j)
+                .filter(|(j, c)| {
+                    *j > 0 && *j < lines[i].len() - 1 && *c == 'A' && check_mas(&lines, i, *j)
                 })
                 .count()
         })
