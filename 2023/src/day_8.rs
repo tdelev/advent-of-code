@@ -1,4 +1,8 @@
-use std::{collections::HashMap, error::Error, fs};
+use std::{
+    collections::{HashMap, VecDeque},
+    error::Error,
+    fs,
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let input = fs::read_to_string("input/day_8.txt")?;
